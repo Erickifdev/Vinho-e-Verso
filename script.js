@@ -18,6 +18,14 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const byId = id => document.getElementById(id);
   const uid = () => crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  function stripPostgresNulls(value) {
+    if (typeof value === 'string') return value.replace(/\u0000/g, '');
+    if (Array.isArray(value)) return value.map(stripPostgresNulls);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key.replace(/\u0000/g, ''), stripPostgresNulls(item)]));
+    }
+    return value;
+  }
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const supabaseClient = window.supabase?.createClient && window.ESTUDAI_SUPABASE?.url && window.ESTUDAI_SUPABASE?.publishableKey
     ? window.supabase.createClient(window.ESTUDAI_SUPABASE.url, window.ESTUDAI_SUPABASE.publishableKey)
@@ -42,6 +50,7 @@
   }
 
   function normalizeData(raw) {
+    raw = stripPostgresNulls(raw);
     const normalized = emptyData();
     if (raw && Array.isArray(raw.entries)) {
       const extraFolders = Array.isArray(raw.folders) ? raw.folders : [];
@@ -82,6 +91,7 @@
 
   function persist() {
     try {
+      data = stripPostgresNulls(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       scheduleCloudSave();
       return true;
@@ -94,7 +104,7 @@
   function scheduleCloudSave() {
     if (!currentUser || !cloudReady || !supabaseClient) return;
     const userId = currentUser.id;
-    const snapshot = JSON.parse(JSON.stringify(data));
+    const snapshot = stripPostgresNulls(JSON.parse(JSON.stringify(data)));
     clearTimeout(cloudSaveTimer);
     cloudSaveTimer = setTimeout(async () => {
       if (!currentUser || currentUser.id !== userId || !cloudReady) return;
@@ -149,9 +159,11 @@
       const remoteData = normalizeData(remoteRaw);
       const needsMigration = !Array.isArray(remoteRaw.entries);
       let uploadedLocal = false;
-      if (localHadEntries && !previousUserId) {
-        const useLocal = window.confirm('Há conteúdo salvo neste navegador e na conta. OK envia o conteúdo deste navegador para a nuvem; Cancelar abre o conteúdo que já está na nuvem.');
+      const localDiffersFromCloud = JSON.stringify(data) !== JSON.stringify(remoteData);
+      if (localHadEntries && localDiffersFromCloud) {
+        const useLocal = window.confirm('A cópia deste aparelho tem conteúdo diferente da nuvem. OK mantém e envia a cópia deste aparelho (incluindo alterações ainda não sincronizadas); Cancelar carrega a versão da nuvem.');
         if (useLocal) {
+          data = stripPostgresNulls(data);
           const { error: uploadError } = await supabaseClient.from('pif_data').upsert({ user_id: user.id, data, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
           if (uploadError) { showToast('Não consegui enviar o conteúdo local para a nuvem.'); loadingUserId = null; return; }
           uploadedLocal = true;
