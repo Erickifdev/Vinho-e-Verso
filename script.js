@@ -10,7 +10,7 @@
   ];
   const KIND_INFO = {
     text: { label: 'Texto', icon: '▤' }, poem: { label: 'Poema', icon: '✎' },
-    idea: { label: 'Ideia', icon: '✧' }, project: { label: 'Projeto', icon: '◈' }, file: { label: 'Arquivo', icon: '▧' }
+    idea: { label: 'Ideia', icon: '✧' }, project: { label: 'Projeto', icon: '◈' }, file: { label: 'Arquivo', icon: '▧' }, folder: { label: 'Pasta de trabalho', icon: '▣' }
   };
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -54,7 +54,8 @@
         kind: Object.hasOwn(KIND_INFO, entry.kind) ? entry.kind : 'text', text: String(entry.text || ''),
         tags: Array.isArray(entry.tags) ? entry.tags.map(String).slice(0, 20) : [], favorite: Boolean(entry.favorite),
         createdAt: entry.createdAt || new Date().toISOString(), updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
-        file: entry.file && typeof entry.file === 'object' ? { path: String(entry.file.path || ''), name: String(entry.file.name || 'arquivo'), size: Number(entry.file.size) || 0, type: String(entry.file.type || 'application/octet-stream') } : null
+        file: entry.file && typeof entry.file === 'object' ? { path: String(entry.file.path || ''), name: String(entry.file.name || 'arquivo'), size: Number(entry.file.size) || 0, type: String(entry.file.type || 'application/octet-stream') } : null,
+        files: Array.isArray(entry.files) ? entry.files.filter(file => file && file.path).map(file => ({ path: String(file.path), name: String(file.name || 'arquivo'), relativePath: String(file.relativePath || file.name || 'arquivo'), size: Number(file.size) || 0, type: String(file.type || 'application/octet-stream') })) : []
       }));
       return normalized;
     }
@@ -317,9 +318,9 @@
       byId('showcaseHeading').textContent = showcase.heading;
       byId('showcaseDescription').textContent = showcase.description;
       byId('showcaseButtonLabel').textContent = showcase.button;
-      const count = showcase.count === 'all' ? folderCount(activeFolder) : data.entries.filter(entry => entry.kind === showcase.count && (activeFolder === 'all' || entry.folderId === activeFolder)).length;
+      const count = showcase.count === 'all' ? folderCount(activeFolder) : data.entries.filter(entry => (entry.kind === showcase.count || (showcase.count === 'file' && entry.kind === 'folder')) && (activeFolder === 'all' || entry.folderId === activeFolder)).length;
       byId('showcaseCount').textContent = count;
-      byId('showcaseCountLabel').textContent = count === 1 ? (showcase.count === 'file' ? 'arquivo salvo' : 'item guardado') : (showcase.count === 'file' ? 'arquivos salvos' : 'itens guardados');
+      byId('showcaseCountLabel').textContent = count === 1 ? (showcase.count === 'file' ? 'item salvo' : 'item guardado') : (showcase.count === 'file' ? 'itens salvos' : 'itens guardados');
     }
     byId('statsGrid').hidden = poemsView || showCategory;
     byId('filterRow').hidden = poemsView;
@@ -347,9 +348,10 @@
     const categoryKind = { poemas: 'poem', anotacoes: 'text', ideias: 'idea', projetos: 'project', arquivos: 'file' }[activeFolder];
     let entries = data.entries.filter(entry => {
       const inFolder = activeFolder === 'all' || (activeFolder === 'favorites' ? entry.favorite : entry.folderId === activeFolder);
-      const inCategory = !categoryKind || entry.kind === categoryKind;
-      const inKind = activeKind === 'all' || (activeKind === 'file' ? entry.kind === 'file' : entry.kind !== 'file');
-      const haystack = `${entry.title} ${entry.text} ${entry.tags.join(' ')} ${entry.file?.name || ''}`.toLocaleLowerCase('pt-BR');
+      const inCategory = !categoryKind || entry.kind === categoryKind || (activeFolder === 'arquivos' && entry.kind === 'folder');
+      const inKind = activeKind === 'all' || (activeKind === 'file' ? entry.kind === 'file' || entry.kind === 'folder' : entry.kind !== 'file' && entry.kind !== 'folder');
+      const folderNames = (entry.files || []).map(file => `${file.name} ${file.relativePath}`).join(' ');
+      const haystack = `${entry.title} ${entry.text} ${entry.tags.join(' ')} ${entry.file?.name || ''} ${folderNames}`.toLocaleLowerCase('pt-BR');
       return inFolder && inCategory && inKind && (!query || haystack.includes(query));
     });
     entries.sort((a, b) => sort === 'oldest' ? new Date(a.createdAt) - new Date(b.createdAt) : sort === 'az' ? a.title.localeCompare(b.title, 'pt-BR') : new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -370,9 +372,9 @@
     grid.innerHTML = entries.map(entry => {
       const folder = findFolder(entry.folderId);
       const info = KIND_INFO[entry.kind] || KIND_INFO.text;
-      const excerpt = entry.kind === 'file' ? `<div class="entry-file-line"><span>▧</span><span>${escapeHTML(entry.file?.name || 'Arquivo anexado')}</span></div>` : `<p class="entry-excerpt">${escapeHTML(entry.text || 'Sem conteúdo ainda.')}</p>`;
+      const excerpt = entry.kind === 'file' ? `<div class="entry-file-line"><span>▧</span><span>${escapeHTML(entry.file?.name || 'Arquivo anexado')} · ${formatSize(entry.file?.size || 0)}</span></div>` : entry.kind === 'folder' ? `<div class="entry-file-line"><span>▣</span><span>${entry.files.length} arquivos · ${escapeHTML(entry.files[0]?.relativePath || 'Pasta de trabalho')}</span></div>` : `<p class="entry-excerpt">${escapeHTML(entry.text || 'Sem conteúdo ainda.')}</p>`;
       const tags = entry.tags.length ? `<div class="entry-tags">${entry.tags.slice(0, 3).map(tag => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>` : '';
-      const cardClass = { poem: 'poem-card', text: 'text-card', idea: 'idea-card', project: 'project-card', file: 'file-card' }[entry.kind] || 'text-card';
+      const cardClass = { poem: 'poem-card', text: 'text-card', idea: 'idea-card', project: 'project-card', file: 'file-card', folder: 'file-card folder-card' }[entry.kind] || 'text-card';
       return `<article class="entry-card ${cardClass}" data-open-entry="${escapeHTML(entry.id)}" tabindex="0"><div class="entry-card-top"><div class="entry-type" data-kind="${escapeHTML(entry.kind)}"><span class="entry-type-icon">${info.icon}</span>${info.label}</div><button class="favorite-button ${entry.favorite ? 'active' : ''}" data-favorite="${escapeHTML(entry.id)}" aria-label="${entry.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}" title="Favorito">${entry.favorite ? '♥' : '♡'}</button></div><h3>${escapeHTML(entry.title)}</h3>${excerpt}${tags}<div class="entry-card-foot"><span class="entry-folder-label">${escapeHTML(folder?.name || 'Anotações')}</span><span>${entryDate(entry)}</span></div></article>`;
     }).join('');
     $$('[data-open-entry]', grid).forEach(card => {
@@ -418,16 +420,22 @@
     byId('entryKind').value = entry?.kind || (activeFolder === 'poemas' ? 'poem' : activeFolder === 'ideias' ? 'idea' : activeFolder === 'projetos' ? 'project' : activeFolder === 'arquivos' ? 'file' : 'text');
     fillFolderOptions(entry?.folderId || (findFolder(activeFolder) ? activeFolder : 'anotacoes'));
     byId('entryFile').value = '';
-    updateKindFields(Boolean(entry?.file));
+    byId('entryFolderFiles').value = '';
+    updateKindFields(Boolean((entry?.kind === 'file' && entry.file) || (entry?.kind === 'folder' && entry.files?.length)));
     if (entry?.file) byId('fileHelp').textContent = `Anexado: ${entry.file.name}. Selecione outro para substituir.`;
+    if (entry?.files?.length) byId('fileHelp').textContent = `Pasta atual com ${entry.files.length} arquivos. Selecione outra pasta para substituir.`;
     openModal(byId('entryModal')); setTimeout(() => byId('entryTitle').focus(), 40);
   }
 
   function updateKindFields(hasExistingFile = false) {
-    const isFile = byId('entryKind').value === 'file';
+    const kind = byId('entryKind').value;
+    const isFile = kind === 'file';
+    const isFolder = kind === 'folder';
     const isPoem = byId('entryKind').value === 'poem';
-    byId('textContentField').hidden = isFile;
-    byId('fileContentField').hidden = !isFile;
+    byId('textContentField').hidden = isFile || isFolder;
+    byId('fileContentField').hidden = !isFile && !isFolder;
+    byId('singleFileField').hidden = !isFile;
+    byId('folderFilesField').hidden = !isFolder;
     byId('poemGuidance').hidden = !isPoem;
     byId('contentLabel').textContent = isPoem ? 'Seu poema' : byId('entryKind').value === 'text' ? 'Seu texto' : 'Seu conteúdo';
     byId('entryContent').placeholder = isPoem
@@ -435,8 +443,10 @@
       : byId('entryKind').value === 'text' ? 'Escreva ou cole seu texto aqui…' : 'Escreva ou cole seu conteúdo aqui…';
     byId('entryContent').classList.toggle('poem-editor', isPoem);
     byId('entryFile').required = isFile && !hasExistingFile;
+    byId('entryFolderFiles').required = isFolder && !hasExistingFile;
     if (isFile && !hasExistingFile) byId('fileHelp').textContent = 'Arquivos ficam privados na sua conta. Limite: 50 MB por arquivo.';
     if (!isFile) byId('entryFile').required = false;
+    if (!isFolder) byId('entryFolderFiles').required = false;
   }
 
   function parseTags(value) { return [...new Set(value.split(',').map(tag => tag.trim()).filter(Boolean))].slice(0, 20); }
@@ -455,6 +465,9 @@
     } finally { event.target.value = ''; }
   }
   function safeFileName(name) { return name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(-100) || 'arquivo'; }
+  function safeRelativePath(path) {
+    return path.split(/[\\/]+/).filter(part => part && part !== '.' && part !== '..').map(safeFileName).join('/');
+  }
 
   async function saveEntry(event) {
     event.preventDefault();
@@ -463,33 +476,84 @@
     const title = byId('entryTitle').value.trim();
     const kind = byId('entryKind').value;
     const selectedFile = byId('entryFile').files?.[0] || null;
-    if (kind === 'file' && !currentUser) { showToast('Entre na sua conta para guardar arquivos na nuvem.'); closeModals(); openAuthModal(); return; }
+    const selectedFolderFiles = [...(byId('entryFolderFiles').files || [])];
+    const isUpload = kind === 'file' || kind === 'folder';
+    if (isUpload && !currentUser) { showToast('Entre na sua conta para guardar arquivos na nuvem.'); closeModals(); openAuthModal(); return; }
     if (selectedFile && selectedFile.size > MAX_FILE_SIZE) { showToast('Esse arquivo passa do limite de 50 MB.'); return; }
+    if (selectedFolderFiles.length > 250) { showToast('A pasta pode ter no máximo 250 arquivos.'); return; }
+    const folderBytes = selectedFolderFiles.reduce((total, file) => total + file.size, 0);
+    if (selectedFolderFiles.some(file => file.size > MAX_FILE_SIZE)) { showToast('Há um arquivo na pasta que passa do limite de 50 MB.'); return; }
+    if (folderBytes > 200 * 1024 * 1024) { showToast('A pasta passa do limite total de 200 MB.'); return; }
+    if (kind === 'folder' && !selectedFolderFiles.length && !previous?.files?.length) { showToast('Escolha uma pasta com arquivos para guardar.'); return; }
 
-    let fileMeta = previous?.file || null;
-    if (kind === 'file' && selectedFile) {
-      const path = `${currentUser.id}/${uid()}-${safeFileName(selectedFile.name)}`;
-      const { error } = await supabaseClient.storage.from('pif-files').upload(path, selectedFile, { upsert: false, contentType: selectedFile.type || 'application/octet-stream' });
-      if (error) { showToast('Não consegui enviar o arquivo. Confira o armazenamento e tente novamente.'); return; }
-      fileMeta = { path, name: selectedFile.name, size: selectedFile.size, type: selectedFile.type || 'application/octet-stream' };
-    } else if (kind !== 'file') fileMeta = null;
+    const entryId = previous?.id || uid();
+    const uploadedPaths = [];
+    const saveButton = byId('saveEntry');
+    const originalButtonHTML = saveButton.innerHTML;
+    let fileMeta = kind === 'file' ? previous?.file || null : null;
+    let filesMeta = kind === 'folder' ? previous?.files || [] : [];
+    saveButton.disabled = true;
+    try {
+      if (kind === 'file' && selectedFile) {
+        const path = `${currentUser.id}/${entryId}/${uid()}-${safeFileName(selectedFile.name)}`;
+        const { error } = await supabaseClient.storage.from('pif-files').upload(path, selectedFile, { upsert: false, contentType: selectedFile.type || 'application/octet-stream' });
+        if (error) { showToast('Não consegui enviar o arquivo. Confira o armazenamento e tente novamente.'); return; }
+        uploadedPaths.push(path);
+        fileMeta = { path, name: selectedFile.name, size: selectedFile.size, type: selectedFile.type || 'application/octet-stream' };
+      }
+      if (kind === 'folder' && selectedFolderFiles.length) {
+        const batchId = uid();
+        const firstPath = selectedFolderFiles[0].webkitRelativePath || selectedFolderFiles[0].name;
+        const rootName = firstPath.includes('/') ? firstPath.split('/')[0] : title;
+        filesMeta = [];
+        for (let index = 0; index < selectedFolderFiles.length; index += 1) {
+          const file = selectedFolderFiles[index];
+          const rawPath = file.webkitRelativePath || file.name;
+          const parts = rawPath.split(/[\\/]+/).filter(part => part && part !== '.' && part !== '..');
+          const relativePath = file.webkitRelativePath && parts.length > 1 ? `${safeFileName(rootName)}/${parts.slice(1).map(safeFileName).join('/')}` : `${safeFileName(title)}/${safeFileName(file.name)}`;
+          const storagePath = `${currentUser.id}/${entryId}/${batchId}/${safeRelativePath(rawPath)}`;
+          saveButton.textContent = `Enviando ${index + 1} de ${selectedFolderFiles.length}…`;
+          const { error } = await supabaseClient.storage.from('pif-files').upload(storagePath, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
+          if (error) {
+            if (uploadedPaths.length) await supabaseClient.storage.from('pif-files').remove(uploadedPaths);
+            showToast(`Falha ao enviar ${file.name}. Confira o armazenamento e tente novamente.`);
+            return;
+          }
+          uploadedPaths.push(storagePath);
+          filesMeta.push({ path: storagePath, name: file.name, relativePath, size: file.size, type: file.type || 'application/octet-stream' });
+        }
+      }
+    } catch {
+      if (uploadedPaths.length) await supabaseClient.storage.from('pif-files').remove(uploadedPaths);
+      showToast('O envio falhou. Confira sua conexão e tente guardar novamente.');
+      return;
+    } finally {
+      saveButton.disabled = false;
+      saveButton.innerHTML = originalButtonHTML;
+    }
 
     const now = new Date().toISOString();
     const entry = {
-      id: previous?.id || uid(), title,
-      folderId: kind === 'file' && byId('entryFolder').value === 'arquivos' ? 'arquivos' : byId('entryFolder').value,
-      kind, text: kind === 'file' ? '' : byId('entryContent').value,
+      id: entryId, title,
+      folderId: isUpload && byId('entryFolder').value === 'arquivos' ? 'arquivos' : byId('entryFolder').value,
+      kind, text: isUpload ? '' : byId('entryContent').value,
       tags: parseTags(byId('entryTags').value), favorite: previous?.favorite || false,
-      createdAt: previous?.createdAt || now, updatedAt: now, file: fileMeta
+      createdAt: previous?.createdAt || now, updatedAt: now, file: fileMeta, files: filesMeta
     };
-    if (kind === 'file' && findFolder('arquivos') && !entry.folderId) entry.folderId = 'arquivos';
-    if (previous?.file && previous.file.path !== fileMeta?.path && currentUser) {
-      const { error } = await supabaseClient.storage.from('pif-files').remove([previous.file.path]);
-      if (error) showToast('O novo item foi salvo, mas o anexo antigo não pôde ser removido.');
-    }
+    const replacedPaths = [previous?.file?.path, ...(previous?.files || []).map(file => file.path)].filter(Boolean).filter(path => !uploadedPaths.includes(path));
+    const previousData = JSON.parse(JSON.stringify(data));
     if (previous) data.entries[data.entries.findIndex(item => item.id === id)] = entry;
     else data.entries.unshift(entry);
-    if (!persist()) return;
+    if (!persist()) {
+      data = previousData;
+      if (uploadedPaths.length) await supabaseClient.storage.from('pif-files').remove(uploadedPaths);
+      render();
+      return;
+    }
+    if (replacedPaths.length && currentUser && supabaseClient) {
+      const { error } = await supabaseClient.storage.from('pif-files').remove(replacedPaths);
+      if (error) showToast('O item foi salvo, mas alguns arquivos antigos não puderam ser removidos.');
+    }
     closeModals(); render(); showToast(previous ? 'Alterações guardadas.' : 'Item guardado na sua biblioteca.');
   }
 
@@ -500,12 +564,15 @@
     byId('detailMeta').textContent = `${folder?.name || 'Coleção'} · ${info.label} · ${entryDate(entry)}`;
     byId('detailTitle').textContent = entry.title;
     byId('detailTags').innerHTML = entry.tags.map(tag => `<span class="tag">${escapeHTML(tag)}</span>`).join('');
-    byId('detailContent').hidden = entry.kind === 'file';
+    byId('detailContent').hidden = entry.kind === 'file' || entry.kind === 'folder';
     byId('detailContent').textContent = entry.text;
     byId('detailContent').classList.toggle('poem-detail', entry.kind === 'poem');
-    byId('detailFile').hidden = entry.kind !== 'file';
-    byId('detailFile').textContent = entry.kind === 'file' ? `${entry.file?.name || 'Arquivo'} · ${formatSize(entry.file?.size || 0)}` : '';
-    byId('downloadEntry').hidden = entry.kind !== 'file';
+    byId('detailFile').hidden = entry.kind !== 'file' && entry.kind !== 'folder';
+    byId('detailFile').innerHTML = entry.kind === 'folder'
+      ? `<strong>${entry.files.length} arquivos nesta pasta</strong><ul class="stored-file-list">${entry.files.map(file => `<li><span>${escapeHTML(file.relativePath)} <small>${formatSize(file.size)}</small></span></li>`).join('')}</ul>`
+      : entry.kind === 'file' ? `${escapeHTML(entry.file?.name || 'Arquivo')} · ${formatSize(entry.file?.size || 0)}` : '';
+    byId('downloadEntry').hidden = entry.kind !== 'file' && entry.kind !== 'folder';
+    byId('downloadEntry').innerHTML = entry.kind === 'folder' ? 'Baixar pasta (.zip) <span>↓</span>' : 'Baixar arquivo <span>↓</span>';
     openModal(byId('detailModal'));
   }
 
@@ -517,18 +584,39 @@
 
   async function downloadEntry() {
     const entry = findEntry(activeEntryId);
-    if (!entry?.file || !currentUser) { showToast('Entre na sua conta para baixar esse arquivo.'); return; }
+    if (!entry || !currentUser) { showToast('Entre na sua conta para baixar esse conteúdo.'); return; }
+    if (entry.kind === 'folder') {
+      if (!window.JSZip) { showToast('O compactador não carregou. Atualize a página e tente novamente.'); return; }
+      const zip = new window.JSZip();
+      for (const storedFile of entry.files || []) {
+        const { data: file, error } = await supabaseClient.storage.from('pif-files').download(storedFile.path);
+        if (error) { showToast(`Não consegui baixar ${storedFile.name}. Confira sua conexão.`); return; }
+        zip.file(storedFile.relativePath || storedFile.name, file);
+      }
+      try {
+        const archive = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        triggerDownload(archive, `${safeFileName(entry.title)}.zip`);
+      } catch { showToast('Não consegui montar o ZIP desta pasta.'); }
+      return;
+    }
+    if (!entry.file?.path) { showToast('Esse item não tem um arquivo disponível para baixar.'); return; }
     const { data: file, error } = await supabaseClient.storage.from('pif-files').download(entry.file.path);
     if (error) { showToast('Não consegui baixar o arquivo. Confira sua conexão.'); return; }
+    triggerDownload(file, entry.file.name);
+  }
+
+  function triggerDownload(file, filename) {
     const url = URL.createObjectURL(file), link = document.createElement('a');
-    link.href = url; link.download = entry.file.name; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function deleteEntry() {
     const entry = findEntry(activeEntryId);
     if (!entry || !window.confirm(`Apagar “${entry.title}”?`)) return;
-    if (entry.file?.path && currentUser) {
-      const { error } = await supabaseClient.storage.from('pif-files').remove([entry.file.path]);
+    const storedPaths = [entry.file?.path, ...(entry.files || []).map(file => file.path)].filter(Boolean);
+    if (storedPaths.length && currentUser) {
+      const { error } = await supabaseClient.storage.from('pif-files').remove(storedPaths);
       if (error) { showToast('Não consegui remover o arquivo da nuvem. Tente novamente.'); return; }
     }
     const previousData = JSON.parse(JSON.stringify(data));
@@ -581,9 +669,20 @@
   byId('addFolder').addEventListener('click', openFolderModal);
   byId('entryKind').addEventListener('change', () => {
     const kind = byId('entryKind').value;
-    const automaticFolder = { poem: 'poemas', idea: 'ideias', project: 'projetos', file: 'arquivos' }[kind];
+    const automaticFolder = { poem: 'poemas', idea: 'ideias', project: 'projetos', file: 'arquivos', folder: 'arquivos' }[kind];
     if (automaticFolder && findFolder(automaticFolder)) byId('entryFolder').value = automaticFolder;
-    updateKindFields(Boolean(findEntry(byId('entryId').value)?.file));
+    const editing = findEntry(byId('entryId').value);
+    updateKindFields(Boolean((kind === 'file' && editing?.kind === 'file' && editing.file) || (kind === 'folder' && editing?.kind === 'folder' && editing.files?.length)));
+  });
+  if (!('webkitdirectory' in document.createElement('input'))) {
+    byId('entryKind').querySelector('option[value="folder"]').disabled = true;
+    byId('folderPickerFallback').hidden = false;
+  }
+  byId('entryFolderFiles').addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    const firstPath = file?.webkitRelativePath || '';
+    const folderName = firstPath.includes('/') ? firstPath.split('/')[0] : '';
+    if (folderName && !byId('entryTitle').value.trim()) byId('entryTitle').value = folderName;
   });
   byId('textImportFile').addEventListener('change', importTextFile);
   byId('entryForm').addEventListener('submit', saveEntry);
