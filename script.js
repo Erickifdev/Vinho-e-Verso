@@ -276,6 +276,7 @@
     byId('statItems').textContent = data.entries.length;
     byId('statFolders').textContent = data.folders.length;
     byId('statFavorites').textContent = data.entries.filter(entry => entry.favorite).length;
+    byId('poemTotal').textContent = folderCount('poemas');
   }
 
   function renderCustomFolders() {
@@ -295,6 +296,38 @@
       arquivos: 'Seus arquivos pessoais, organizados em um só lugar.', favorites: 'Acesso rápido às coisas que você mais gosta.'
     };
     byId('currentCrumb').textContent = title;
+    const poemsView = activeFolder === 'poemas';
+    const categoryData = {
+      anotacoes: { symbol: '▤', eyebrow: 'CADERNO PESSOAL', heading: 'Textos para guardar e revisitar.', description: 'Rascunhos, pensamentos e escritos completos, reunidos num caderno só seu.', button: 'Escrever texto', count: 'text' },
+      ideias: { symbol: '✧', eyebrow: 'MURAL DE IDEIAS', heading: 'Toda ideia pode virar algo.', description: 'Reúna inspirações, frases soltas e projetos que ainda estão começando.', button: 'Anotar ideia', count: 'idea' },
+      projetos: { symbol: '◈', eyebrow: 'SUA OFICINA', heading: 'Criações em andamento.', description: 'Organize planos, referências e materiais dos seus projetos em um só lugar.', button: 'Criar projeto', count: 'project' },
+      arquivos: { symbol: '▧', eyebrow: 'ARQUIVO PESSOAL', heading: 'Seus arquivos, sempre à mão.', description: 'Guarde documentos e anexos com nome, coleção e etiquetas para encontrar depois.', button: 'Enviar arquivo', count: 'file' }
+    };
+    const customData = folder && !folder.builtIn ? { symbol: folder.icon || '▣', eyebrow: 'SUA COLEÇÃO', heading: folder.name, description: `Tudo o que você reuniu em ${folder.name}.`, button: 'Adicionar item', count: 'all' } : null;
+    const showcase = categoryData[activeFolder] || customData;
+    const showCategory = !poemsView && Boolean(showcase);
+    byId('libraryView').classList.toggle('poems-view', poemsView);
+    byId('libraryView').classList.toggle('collection-view', showCategory);
+    byId('libraryView').dataset.section = activeFolder;
+    byId('poemIntro').hidden = !poemsView;
+    byId('categoryShowcase').hidden = !showCategory;
+    if (showcase) {
+      byId('showcaseSymbol').textContent = showcase.symbol;
+      byId('showcaseEyebrow').textContent = showcase.eyebrow;
+      byId('showcaseHeading').textContent = showcase.heading;
+      byId('showcaseDescription').textContent = showcase.description;
+      byId('showcaseButtonLabel').textContent = showcase.button;
+      const count = showcase.count === 'all' ? folderCount(activeFolder) : data.entries.filter(entry => entry.kind === showcase.count && (activeFolder === 'all' || entry.folderId === activeFolder)).length;
+      byId('showcaseCount').textContent = count;
+      byId('showcaseCountLabel').textContent = count === 1 ? (showcase.count === 'file' ? 'arquivo salvo' : 'item guardado') : (showcase.count === 'file' ? 'arquivos salvos' : 'itens guardados');
+    }
+    byId('statsGrid').hidden = poemsView || showCategory;
+    byId('filterRow').hidden = poemsView;
+    $$('.content-tab').forEach(button => {
+      const selected = button.dataset.viewfolder === activeFolder;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-current', selected ? 'page' : 'false');
+    });
     byId('pageTitle').innerHTML = `${escapeHTML(title === 'Tudo' ? 'Tudo que é seu' : title)}<span class="title-dot">.</span>`;
     byId('pageDescription').textContent = descriptions[activeFolder] || `Tudo que você guardou em ${title}.`;
     byId('sectionEyebrow').textContent = activeFolder === 'all' ? 'SUA BIBLIOTECA' : 'COLEÇÃO';
@@ -311,11 +344,13 @@
   function filteredEntries() {
     const query = byId('searchInput').value.trim().toLocaleLowerCase('pt-BR');
     const sort = byId('sortSelect').value;
+    const categoryKind = { poemas: 'poem', anotacoes: 'text', ideias: 'idea', projetos: 'project', arquivos: 'file' }[activeFolder];
     let entries = data.entries.filter(entry => {
       const inFolder = activeFolder === 'all' || (activeFolder === 'favorites' ? entry.favorite : entry.folderId === activeFolder);
+      const inCategory = !categoryKind || entry.kind === categoryKind;
       const inKind = activeKind === 'all' || (activeKind === 'file' ? entry.kind === 'file' : entry.kind !== 'file');
       const haystack = `${entry.title} ${entry.text} ${entry.tags.join(' ')} ${entry.file?.name || ''}`.toLocaleLowerCase('pt-BR');
-      return inFolder && inKind && (!query || haystack.includes(query));
+      return inFolder && inCategory && inKind && (!query || haystack.includes(query));
     });
     entries.sort((a, b) => sort === 'oldest' ? new Date(a.createdAt) - new Date(b.createdAt) : sort === 'az' ? a.title.localeCompare(b.title, 'pt-BR') : new Date(b.updatedAt) - new Date(a.updatedAt));
     return entries;
@@ -337,7 +372,8 @@
       const info = KIND_INFO[entry.kind] || KIND_INFO.text;
       const excerpt = entry.kind === 'file' ? `<div class="entry-file-line"><span>▧</span><span>${escapeHTML(entry.file?.name || 'Arquivo anexado')}</span></div>` : `<p class="entry-excerpt">${escapeHTML(entry.text || 'Sem conteúdo ainda.')}</p>`;
       const tags = entry.tags.length ? `<div class="entry-tags">${entry.tags.slice(0, 3).map(tag => `<span class="tag">${escapeHTML(tag)}</span>`).join('')}</div>` : '';
-      return `<article class="entry-card" data-open-entry="${escapeHTML(entry.id)}" tabindex="0"><div class="entry-card-top"><div class="entry-type" data-kind="${escapeHTML(entry.kind)}"><span class="entry-type-icon">${info.icon}</span>${info.label}</div><button class="favorite-button ${entry.favorite ? 'active' : ''}" data-favorite="${escapeHTML(entry.id)}" aria-label="${entry.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}" title="Favorito">${entry.favorite ? '♥' : '♡'}</button></div><h3>${escapeHTML(entry.title)}</h3>${excerpt}${tags}<div class="entry-card-foot"><span class="entry-folder-label">${escapeHTML(folder?.name || 'Anotações')}</span><span>${entryDate(entry)}</span></div></article>`;
+      const cardClass = { poem: 'poem-card', text: 'text-card', idea: 'idea-card', project: 'project-card', file: 'file-card' }[entry.kind] || 'text-card';
+      return `<article class="entry-card ${cardClass}" data-open-entry="${escapeHTML(entry.id)}" tabindex="0"><div class="entry-card-top"><div class="entry-type" data-kind="${escapeHTML(entry.kind)}"><span class="entry-type-icon">${info.icon}</span>${info.label}</div><button class="favorite-button ${entry.favorite ? 'active' : ''}" data-favorite="${escapeHTML(entry.id)}" aria-label="${entry.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}" title="Favorito">${entry.favorite ? '♥' : '♡'}</button></div><h3>${escapeHTML(entry.title)}</h3>${excerpt}${tags}<div class="entry-card-foot"><span class="entry-folder-label">${escapeHTML(folder?.name || 'Anotações')}</span><span>${entryDate(entry)}</span></div></article>`;
     }).join('');
     $$('[data-open-entry]', grid).forEach(card => {
       card.addEventListener('click', event => { if (!event.target.closest('[data-favorite]')) openEntry(card.dataset.openEntry); });
@@ -350,8 +386,15 @@
     activeFolder = folderId;
     activeKind = 'all';
     $$('.filter-chip').forEach(button => button.classList.toggle('active', button.dataset.kind === 'all'));
-    renderCustomFolders(); renderHeader(); renderEntries(); closeSidebar();
+    renderCustomFolders(); renderHeader(); renderEntries();
   }
+
+  $$('.content-tab').forEach(button => button.addEventListener('click', () => selectFolder(button.dataset.viewfolder)));
+  byId('newPoem').addEventListener('click', () => openEntryModal());
+  byId('newCategoryEntry').addEventListener('click', () => openEntryModal());
+  document.addEventListener('contextmenu', event => {
+    if (event.target.closest('.entry-card, .nav-link, .custom-folder, .content-tab')) event.preventDefault();
+  });
 
   function openModal(dialog) { if (!dialog.open) dialog.showModal(); }
   function closeModals() { $$('dialog[open]').forEach(dialog => dialog.close()); }
