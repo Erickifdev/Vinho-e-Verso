@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#120d10">
-  <meta name="description" content="PIF é seu espaço pessoal para guardar poemas, ideias, projetos, anotações e arquivos.">
-  <title>PIF — seu espaço pessoal</title>
+  <meta name="description" content="Vinho & Verso é seu espaço pessoal para guardar poemas, ideias, projetos, anotações e arquivos.">
+  <title>Vinho &amp; Verso — seu espaço pessoal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#inicio" aria-label="PIF, início"><span class="brand-mark">P</span><span class="brand-word">PIF<span class="brand-period">.</span><small>SEU ESPAÇO PESSOAL</small></span></a>
+      <a class="brand" href="#inicio" aria-label="Vinho & Verso, início"><span class="brand-mark">V<span class="brand-period">&amp;</span>V</span><span class="brand-word">Vinho <span class="brand-period">&amp;</span> Verso<small>SEU ESPAÇO PESSOAL</small></span></a>
       <div class="sidebar-label">BIBLIOTECA</div>
       <nav class="main-nav" aria-label="Suas coleções">
         <button class="nav-link active" data-folder="all"><span class="nav-icon">▦</span><span>Tudo</span><span class="nav-count" id="countAll">0</span></button>
@@ -40,7 +40,7 @@
     <main class="main-area">
       <header class="topbar">
         <button id="menuToggle" class="icon-button menu-toggle" aria-label="Abrir menu">☰</button>
-        <div class="breadcrumbs"><span>PIF</span><span class="crumb-slash">/</span><strong id="currentCrumb">Tudo</strong></div>
+        <div class="breadcrumbs"><span>Vinho &amp; Verso</span><span class="crumb-slash">/</span><strong id="currentCrumb">Tudo</strong></div>
         <div class="topbar-right"><label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar em tudo..." aria-label="Buscar itens"><kbd>⌘ K</kbd></label><button class="secondary-button auth-top-button" id="authButton">Entrar</button><div class="avatar" id="userAvatar" aria-label="Seu perfil">P</div></div>
       </header>
 
@@ -50,12 +50,12 @@
         <div class="library-toolbar"><div><div class="eyebrow compact" id="sectionEyebrow">SUA BIBLIOTECA</div><h2 id="sectionTitle">Adicionados recentemente</h2></div><div class="toolbar-actions"><select id="sortSelect" aria-label="Ordenar itens"><option value="newest">Mais recentes</option><option value="oldest">Mais antigos</option><option value="az">Nome A–Z</option></select><button class="primary-button" id="newEntry"><span>＋</span> Guardar algo</button></div></div>
         <div class="filter-row" id="filterRow"><button class="filter-chip active" data-kind="all">Tudo</button><button class="filter-chip" data-kind="text">Textos</button><button class="filter-chip" data-kind="file">Arquivos</button></div>
         <div class="entry-grid" id="entryGrid"></div>
-        <div class="app-footer"><span>Seu espaço, suas ideias <span class="footer-heart">♥</span></span><span>PIF · FEITO PARA GUARDAR O QUE IMPORTA</span></div>
+        <div class="app-footer"><span>Seu espaço, suas ideias <span class="footer-heart">♥</span></span><span>VINHO &amp; VERSO · FEITO PARA GUARDAR O QUE IMPORTA</span></div>
       </section>
     </main>
   </div>
 
-  <dialog class="modal" id="entryModal"><form method="dialog" class="modal-card wide-modal" id="entryForm"><button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button><span class="modal-kicker">GUARDE O QUE IMPORTA</span><h2 id="entryModalTitle">Um espaço para isso<span class="title-dot">.</span></h2><p>Escolha onde guardar e escreva ou anexe seu arquivo.</p><input id="entryId" type="hidden"><label for="entryTitle">Título</label><input id="entryTitle" maxlength="100" placeholder="Dê um nome para esse item" required><div class="form-row"><div><label for="entryFolder">Coleção</label><select id="entryFolder" required></select></div><div><label for="entryKind">Tipo</label><select id="entryKind"><option value="text">Anotação</option><option value="poem">Poema</option><option value="idea">Ideia</option><option value="project">Projeto</option><option value="file">Arquivo</option></select></div></div><label for="entryTags">Etiquetas <span class="optional">(separe por vírgulas)</span></label><input id="entryTags" maxlength="160" placeholder="Ex.: rascunho, escola, inspiração"><div id="textContentField"><label for="entryContent">Seu conteúdo</label><textarea id="entryContent" rows="10" maxlength="30000" placeholder="Escreva ou cole seu texto aqui. As quebras de linha serão preservadas."></textarea></div><div id="fileContentField" hidden><label for="entryFile">Arquivo para guardar</label><input id="entryFile" type="file"><p class="file-help" id="fileHelp">Arquivos ficam privados na sua conta. Limite: 50 MB por arquivo.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-close-modal>Cancelar</button><button class="primary-button" type="submit" id="saveEntry">Guardar item <span>→</span></button></div></form></dialog>
+  <dialog class="modal" id="entryModal"><form method="dialog" class="modal-card wide-modal" id="entryForm"><button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button><span class="modal-kicker">GUARDE O QUE IMPORTA</span><h2 id="entryModalTitle">Um espaço para isso<span class="title-dot">.</span></h2><p>Escolha onde guardar e escreva ou anexe seu arquivo.</p><input id="entryId" type="hidden"><label for="entryTitle">Título</label><input id="entryTitle" maxlength="100" placeholder="Dê um nome para esse item" required><div class="form-row"><div><label for="entryFolder">Coleção</label><select id="entryFolder" required></select></div><div><label for="entryKind">Tipo</label><select id="entryKind"><option value="text">Texto</option><option value="poem">Poema</option><option value="idea">Ideia</option><option value="project">Projeto</option><option value="file">Arquivo</option></select></div></div><label for="entryTags">Etiquetas <span class="optional">(separe por vírgulas)</span></label><input id="entryTags" maxlength="160" placeholder="Ex.: rascunho, escola, inspiração"><div id="textContentField"><label for="entryContent" id="contentLabel">Seu conteúdo</label><p class="content-guidance" id="poemGuidance" hidden>Escreva seus versos com as quebras de linha e espaços entre estrofes. A formatação será preservada.</p><textarea id="entryContent" rows="12" maxlength="30000" placeholder="Escreva ou cole seu texto aqui. As quebras de linha serão preservadas."></textarea><div class="content-import"><label for="textImportFile">Trazer texto de um arquivo <span class="optional">(.txt ou .md)</span></label><input id="textImportFile" type="file" accept=".txt,.md,text/plain,text/markdown"><small>O conteúdo será colocado no campo acima para você revisar antes de guardar.</small></div></div><div id="fileContentField" hidden><label for="entryFile">Arquivo para guardar</label><input id="entryFile" type="file"><p class="file-help" id="fileHelp">Arquivos ficam privados na sua conta. Limite: 50 MB por arquivo.</p></div><div class="modal-actions"><button class="secondary-button" type="button" data-close-modal>Cancelar</button><button class="primary-button" type="submit" id="saveEntry">Guardar item <span>→</span></button></div></form></dialog>
 
   <dialog class="modal" id="folderModal"><form method="dialog" class="modal-card" id="folderForm"><button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button><span class="modal-kicker">ORGANIZE DO SEU JEITO</span><h2>Uma coleção nova<span class="title-dot">.</span></h2><p>Crie uma aba para qualquer tipo de conteúdo.</p><label for="folderName">Nome da coleção</label><input id="folderName" maxlength="35" placeholder="Ex.: Músicas, memórias, referências" required><div class="modal-actions"><button class="secondary-button" type="button" data-close-modal>Cancelar</button><button class="primary-button" type="submit">Criar coleção <span>→</span></button></div></form></dialog>
 
@@ -68,3 +68,4 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
+

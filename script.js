@@ -9,7 +9,7 @@
     { id: 'arquivos', name: 'Arquivos', icon: '▧', builtIn: true }
   ];
   const KIND_INFO = {
-    text: { label: 'Anotação', icon: '▤' }, poem: { label: 'Poema', icon: '✎' },
+    text: { label: 'Texto', icon: '▤' }, poem: { label: 'Poema', icon: '✎' },
     idea: { label: 'Ideia', icon: '✧' }, project: { label: 'Projeto', icon: '◈' }, file: { label: 'Arquivo', icon: '▧' }
   };
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -38,7 +38,7 @@
 
   function readLocalData() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
-    catch (error) { console.warn('Não consegui abrir a cópia local do PIF.', error); return null; }
+    catch { return null; }
   }
 
   function normalizeData(raw) {
@@ -99,7 +99,6 @@
       if (!currentUser || currentUser.id !== userId || !cloudReady) return;
       const { error } = await supabaseClient.from('pif_data').upsert({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
       if (error) {
-        console.error('Falha ao sincronizar a biblioteca:', error);
         showToast('Não consegui sincronizar agora. Confira sua conexão.');
         updateStorageStatus('Falha na sincronização');
       } else updateStorageStatus('Salvo na nuvem');
@@ -138,7 +137,6 @@
 
     const { data: row, error } = await supabaseClient.from('pif_data').select('data').eq('user_id', user.id).maybeSingle();
     if (error) {
-      console.error('Não consegui abrir os dados da conta:', error);
       updateStorageStatus('Confira a conexão do banco');
       showToast('Não consegui carregar a biblioteca da nuvem.');
       loadingUserId = null;
@@ -251,7 +249,7 @@
       const restored = normalizeData(source);
       if (data.entries.length) { pendingBackup = restored; openModal(byId('backupChoiceModal')); }
       else applyBackup(restored, true);
-    } catch (error) { showToast('Não consegui abrir esse backup do PIF.'); }
+    } catch (error) { showToast('Não consegui abrir esse backup do Vinho & Verso.'); }
     finally { byId('backupFile').value = ''; }
   }
 
@@ -373,6 +371,7 @@
     byId('entryTitle').value = entry?.title || '';
     byId('entryTags').value = entry?.tags?.join(', ') || '';
     byId('entryContent').value = entry?.text || '';
+    byId('textImportFile').value = '';
     byId('entryKind').value = entry?.kind || (activeFolder === 'poemas' ? 'poem' : activeFolder === 'ideias' ? 'idea' : activeFolder === 'projetos' ? 'project' : activeFolder === 'arquivos' ? 'file' : 'text');
     fillFolderOptions(entry?.folderId || (findFolder(activeFolder) ? activeFolder : 'anotacoes'));
     byId('entryFile').value = '';
@@ -383,14 +382,35 @@
 
   function updateKindFields(hasExistingFile = false) {
     const isFile = byId('entryKind').value === 'file';
+    const isPoem = byId('entryKind').value === 'poem';
     byId('textContentField').hidden = isFile;
     byId('fileContentField').hidden = !isFile;
+    byId('poemGuidance').hidden = !isPoem;
+    byId('contentLabel').textContent = isPoem ? 'Seu poema' : byId('entryKind').value === 'text' ? 'Seu texto' : 'Seu conteúdo';
+    byId('entryContent').placeholder = isPoem
+      ? 'Escreva seus versos aqui…\n\nSepare as estrofes com uma linha em branco.'
+      : byId('entryKind').value === 'text' ? 'Escreva ou cole seu texto aqui…' : 'Escreva ou cole seu conteúdo aqui…';
+    byId('entryContent').classList.toggle('poem-editor', isPoem);
     byId('entryFile').required = isFile && !hasExistingFile;
     if (isFile && !hasExistingFile) byId('fileHelp').textContent = 'Arquivos ficam privados na sua conta. Limite: 50 MB por arquivo.';
     if (!isFile) byId('entryFile').required = false;
   }
 
   function parseTags(value) { return [...new Set(value.split(',').map(tag => tag.trim()).filter(Boolean))].slice(0, 20); }
+  async function importTextFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Esse texto passa do limite de 2 MB.'); event.target.value = ''; return; }
+    try {
+      const text = await file.text();
+      if (!text.trim()) { showToast('Esse arquivo está vazio.'); return; }
+      byId('entryContent').value = text;
+      if (!byId('entryTitle').value.trim()) byId('entryTitle').value = file.name.replace(/\.(txt|md)$/i, '');
+      showToast('Texto importado. Revise e guarde quando estiver pronto.');
+    } catch {
+      showToast('Não consegui ler esse arquivo. Tente um .txt ou .md.');
+    } finally { event.target.value = ''; }
+  }
   function safeFileName(name) { return name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(-100) || 'arquivo'; }
 
   async function saveEntry(event) {
@@ -407,7 +427,7 @@
     if (kind === 'file' && selectedFile) {
       const path = `${currentUser.id}/${uid()}-${safeFileName(selectedFile.name)}`;
       const { error } = await supabaseClient.storage.from('pif-files').upload(path, selectedFile, { upsert: false, contentType: selectedFile.type || 'application/octet-stream' });
-      if (error) { console.error('Falha ao enviar arquivo:', error); showToast('Não consegui enviar o arquivo. Confira se o armazenamento do PIF está configurado.'); return; }
+      if (error) { showToast('Não consegui enviar o arquivo. Confira o armazenamento e tente novamente.'); return; }
       fileMeta = { path, name: selectedFile.name, size: selectedFile.size, type: selectedFile.type || 'application/octet-stream' };
     } else if (kind !== 'file') fileMeta = null;
 
@@ -422,7 +442,7 @@
     if (kind === 'file' && findFolder('arquivos') && !entry.folderId) entry.folderId = 'arquivos';
     if (previous?.file && previous.file.path !== fileMeta?.path && currentUser) {
       const { error } = await supabaseClient.storage.from('pif-files').remove([previous.file.path]);
-      if (error) console.warn('Não consegui remover o anexo substituído:', error);
+      if (error) showToast('O novo item foi salvo, mas o anexo antigo não pôde ser removido.');
     }
     if (previous) data.entries[data.entries.findIndex(item => item.id === id)] = entry;
     else data.entries.unshift(entry);
@@ -439,6 +459,7 @@
     byId('detailTags').innerHTML = entry.tags.map(tag => `<span class="tag">${escapeHTML(tag)}</span>`).join('');
     byId('detailContent').hidden = entry.kind === 'file';
     byId('detailContent').textContent = entry.text;
+    byId('detailContent').classList.toggle('poem-detail', entry.kind === 'poem');
     byId('detailFile').hidden = entry.kind !== 'file';
     byId('detailFile').textContent = entry.kind === 'file' ? `${entry.file?.name || 'Arquivo'} · ${formatSize(entry.file?.size || 0)}` : '';
     byId('downloadEntry').hidden = entry.kind !== 'file';
@@ -467,8 +488,10 @@
       const { error } = await supabaseClient.storage.from('pif-files').remove([entry.file.path]);
       if (error) { showToast('Não consegui remover o arquivo da nuvem. Tente novamente.'); return; }
     }
+    const previousData = JSON.parse(JSON.stringify(data));
     data.entries = data.entries.filter(item => item.id !== entry.id);
-    persist(); closeModals(); activeEntryId = null; render(); showToast('Item apagado.');
+    if (!persist()) { data = previousData; render(); return; }
+    closeModals(); activeEntryId = null; render(); showToast('Item apagado.');
   }
 
   function toggleFavorite(id) {
@@ -491,10 +514,12 @@
     const folder = findFolder(id); if (!folder || folder.builtIn) return;
     const count = folderCount(id);
     if (!window.confirm(`Apagar a coleção “${folder.name}”? ${count ? `${count} ${count === 1 ? 'item será movido' : 'itens serão movidos'} para Anotações.` : ''}`)) return;
+    const previousData = JSON.parse(JSON.stringify(data));
     data.entries.forEach(entry => { if (entry.folderId === id) { entry.folderId = 'anotacoes'; entry.updatedAt = new Date().toISOString(); } });
     data.folders = data.folders.filter(item => item.id !== id);
     if (activeFolder === id) activeFolder = 'all';
-    persist(); render(); showToast('Coleção removida.');
+    if (!persist()) { data = previousData; render(); return; }
+    render(); showToast('Coleção removida. Os itens foram movidos para Anotações.');
   }
 
   function openImportPicker() { byId('backupFile').click(); }
@@ -517,6 +542,7 @@
     if (automaticFolder && findFolder(automaticFolder)) byId('entryFolder').value = automaticFolder;
     updateKindFields(Boolean(findEntry(byId('entryId').value)?.file));
   });
+  byId('textImportFile').addEventListener('change', importTextFile);
   byId('entryForm').addEventListener('submit', saveEntry);
   byId('folderForm').addEventListener('submit', createFolder);
   byId('editEntry').addEventListener('click', () => { const entry = findEntry(activeEntryId); if (entry) { closeModals(); openEntryModal(entry); } });
